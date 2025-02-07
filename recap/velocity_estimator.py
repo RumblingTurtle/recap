@@ -33,7 +33,7 @@ class VelocityEstimator:
         self.samples[1:] = self.samples[:-1]
         self.samples[0] = position
 
-        if self.sample_count == 0:
+        if self.sample_count <= 1:
             return np.zeros(3)
 
         return np.mean(np.diff(self.samples[: self.sample_count], axis=0) / self.sample_dt, axis=0)

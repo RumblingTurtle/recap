@@ -276,10 +276,6 @@ class WBIKSolver:
             self.tasks["root_prev"].cost[3:] = self.wbik_params.task_weights["root_angular_velocity"]
             self.tasks["joint_pos"].cost = self.wbik_params.task_weights["joint_velocity"]
 
-        # Estimate foot velocity from input data
-        left_foot_velocity = self.foot_vel_estimators[0](self.targets["left_foot"].translation)
-        right_foot_velocity = self.foot_vel_estimators[1](self.targets["right_foot"].translation)
-
         # Compute root position projection on the support line
         left_target = self.targets["left_foot"].translation
         right_target = self.targets["right_foot"].translation
@@ -298,12 +294,12 @@ class WBIKSolver:
 
         # If the feet are in contact the target transform is fixed
         # otherwise previous solution is interpolated to the desired position
-        self.contacts = [
-            np.linalg.norm(left_foot_velocity) < self.wbik_params.contact_velocity,
-            np.linalg.norm(right_foot_velocity) < self.wbik_params.contact_velocity,
-        ]
+        self.contacts = [False, False]
         for i, side in enumerate(["left", "right"]):
-            lerp = self.wbik_params.contact_target_lerp
+            # Estimate foot velocity from input data
+            foot_velocity = self.foot_vel_estimators[i](self.targets[f"{side}_foot"].translation)
+            velocity_norm = np.linalg.norm(foot_velocity)
+            self.contacts[i] = velocity_norm < self.wbik_params.contact_velocity
             if self.contacts[i]:
                 # Keeping the yaw angle so that the feet won't rotate into the ground
                 # when in contact
@@ -316,7 +312,7 @@ class WBIKSolver:
             prev_target = quaternion.from_rotation_matrix(target_matrix)
 
             self.targets[f"{side}_foot"].rotation = quaternion.as_rotation_matrix(
-                quaternion.slerp(current_target, prev_target, 0, 1, lerp)
+                quaternion.slerp(current_target, prev_target, 0, 1, self.wbik_params.contact_target_lerp)
             )
 
             self.prev_targets[f"{side}_foot"] = self.targets[f"{side}_foot"].copy()

@@ -13,7 +13,7 @@ robots = {
 }
 
 ROBOT_NAME = "g1"
-motion_files = glob.glob(os.path.join(os.path.dirname(__file__), f"./motions/{dataset[1]}/{ROBOT_NAME}/*.npy"))
+motion_files = glob.glob(os.path.join(os.path.dirname(__file__), f"./motions/{dataset[0]}/{ROBOT_NAME}/*.npy"))
 with MujocoRenderer(robots[ROBOT_NAME]) as renderer:
     for motion_file in motion_files:
         motion = np.load(motion_file, allow_pickle=True).item()
