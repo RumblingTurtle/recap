@@ -6,7 +6,7 @@ import pinocchio as pin
 import quaternion
 
 from recap.velocity_estimator import VelocityEstimator
-from recap.quat_utils import yaw_quat
+from recap.quat_utils import yaw_matrix
 from recap.mujoco.renderer import MujocoRenderer
 from recap.trajectory import PoseData, BodyTransform
 from recap.config.wbik_config import WBIKConfig
@@ -127,7 +127,7 @@ class WBIKSolver:
             rotation_matrix = np.eye(3)
         else:
             if "foot" in body_name and self.wbik_params.yaw_only_feet:
-                rotation_matrix = yaw_quat(rotation_matrix)
+                rotation_matrix = yaw_matrix(rotation_matrix)
 
         T = pin.SE3(rotation_matrix, position)
         self.targets[body_name] = T
@@ -303,7 +303,7 @@ class WBIKSolver:
             if self.contacts[i]:
                 # Keeping the yaw angle so that the feet won't rotate into the ground
                 # when in contact
-                target_matrix = yaw_quat(self.prev_targets[f"{side}_foot"].rotation)
+                target_matrix = yaw_matrix(self.prev_targets[f"{side}_foot"].rotation)
                 self.targets[f"{side}_foot"].translation = self.prev_targets[f"{side}_foot"].translation
             else:
                 target_matrix = self.targets[f"{side}_foot"].rotation
@@ -378,9 +378,7 @@ class WBIKSolver:
                 )
             )
 
-        root_name = self.model.frames[1].name
-        if "_free" in root_name:
-            root_name = root_name.replace("_free", "")
+        root_name = self.model.frames[list(self.model.parents).index(1)].name
 
         pose_data = PoseData(
             transforms=transforms,

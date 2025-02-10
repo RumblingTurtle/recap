@@ -78,15 +78,14 @@ def quat_inv(q: torch.Tensor) -> torch.Tensor:
     return normalize(q * torch.tensor([[1, -1, -1, -1]], device=q.device))
 
 
-def yaw_quat(rotation_matrix: np.ndarray):
+def yaw_matrix(rotation_matrix: np.ndarray):
     """
     Returns a quaternion that keeps only the yaw rotation of the given rotation matrix
     """
     quat_yaw = quaternion.from_rotation_matrix(rotation_matrix)
     quat_yaw.x = 0.0
     quat_yaw.y = 0.0
-    quat_yaw = quat_yaw / np.linalg.norm(quaternion.as_float_array(quat_yaw))
-    return quaternion.as_rotation_matrix(quat_yaw)
+    return quaternion.as_rotation_matrix(np.normalized(quat_yaw))
 
 
 def quat2mat(q: np.ndarray, scalar_last=False, eps=np.finfo(np.float64).eps):
