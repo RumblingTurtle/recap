@@ -16,7 +16,7 @@ Sometimes your robot model might not have the frames that align well with the da
 
 ```python
 from robot_descriptions.my_awesome_robot import MJCF_PATH
-editor = MJCFModelEditor(MJCF_PATH)
+editor = MJCFModelEditor.from_path(MJCF_PATH)
 # Add a new body to the torso link to serve as the center of the torso
 # The position and quaternion are defined in the parent link frame
 editor.add_body(

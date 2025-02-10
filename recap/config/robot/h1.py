@@ -6,7 +6,7 @@ from recap.mujoco.model_editor import MJCFModelEditor
 import os
 
 # Add a new body to the torso link to serve as the center of the torso
-editor = MJCFModelEditor(MJCF_PATH)
+editor = MJCFModelEditor.from_path(MJCF_PATH)
 editor.add_body("torso_center", "torso_link", np.array([0.0, 0, 0.4]), np.array([1, 0, 0, 0]))
 # Moving the elbow slightly backward to avoid singular configurations
 editor.add_body(

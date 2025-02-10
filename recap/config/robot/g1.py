@@ -6,7 +6,7 @@ import numpy as np
 import os
 
 # Add a new body to the torso link to serve as the center of the torso
-editor = MJCFModelEditor(MJCF_PATH)
+editor = MJCFModelEditor.from_path(MJCF_PATH)
 editor.add_body("torso_center", "torso_link", np.array([0, 0, 0.25]), np.array([1, 0, 0, 0]))
 editor.compile()
 
