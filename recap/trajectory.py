@@ -53,6 +53,8 @@ class BodyTimeSeries:
         self.sample_dt = sample_dt
         self.positions = None
         self.quaternions = None
+        self._linear_velocities = None
+        self._angular_velocities = None
 
     def add_sample(self, position: np.ndarray, quat: np.ndarray):
         """
@@ -70,16 +72,28 @@ class BodyTimeSeries:
             self.positions = np.vstack((self.positions, position.copy()))
             self.quaternions = np.vstack((self.quaternions, np_quat.copy()))
 
-    def to_dict(self, scalar_first: bool = True):
-        linear_velocities = derivative(self.positions, self.sample_dt)
+    @property
+    def linear_velocities(self):
+        if self._linear_velocities is None:
+            self._linear_velocities = derivative(self.positions, self.sample_dt)
+        return self._linear_velocities
 
-        quaternions = quaternion.from_float_array(self.quaternions)
-        angular_velocities = quaternion.angular_velocity(quaternions, np.arange(quaternions.shape[0]) * self.sample_dt)
+    @property
+    def angular_velocities(self):
+        if self._angular_velocities is None:
+            quaternions = quaternion.from_float_array(self.quaternions)
+            self._angular_velocities = quaternion.angular_velocity(
+                quaternions, np.arange(quaternions.shape[0]) * self.sample_dt
+            )
+
+        return self._angular_velocities
+
+    def to_dict(self, scalar_first: bool = True):
         return {
             "position": self.positions,
             "quaternion": (self.quaternions if scalar_first else self.quaternions[:, [1, 2, 3, 0]]),
-            "linear_velocity": linear_velocities,
-            "angular_velocity": angular_velocities,
+            "linear_velocity": self.linear_velocities,
+            "angular_velocity": self.angular_velocities,
         }
 
 
@@ -88,6 +102,7 @@ class Trajectory:
         self.contacts = None
         self.bodies = {}
         self.qs = None
+        self._joint_velocities = None
 
     def add_sample(
         self,
@@ -119,16 +134,26 @@ class Trajectory:
                 self.bodies[transform.name] = BodyTimeSeries(transform.name, pose_data.dt)
             self.bodies[transform.name].add_sample(transform.position, transform.quaternion)
 
+    @property
+    def joint_positions(self):
+        return self.qs[:, 7:]
+
+    @property
+    def joint_velocities(self):
+        if self._joint_velocities is None:
+            self._joint_velocities = derivative(self.joint_positions, self.dt)
+        return self._joint_velocities
+
     def to_dict(self):
         out_dict = {
             "q": self.qs.copy(),
             "dt": self.dt,
-            "joint_positions": self.qs[:, 7:].copy(),
-            "joint_velocities": derivative(self.qs[:, 7:], self.dt),
+            "joint_positions": self.joint_positions,
+            "joint_velocities": self.joint_velocities,
             "joint_order": self.joint_order,
             "body_aliases": self.body_aliases,
             "model_root": self.model_root,
-            "contacts": self.contacts.copy(),
+            "contacts": self.contacts,
             "transforms": {},
         }
         for name, body in self.bodies.items():
