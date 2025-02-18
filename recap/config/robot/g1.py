@@ -1,5 +1,7 @@
 from recap.config.cmu_retarget_config import CMURetargetConfig
 from recap.config.amass_retarget_config import AMASSRetargetConfig
+from recap.config.lafan_retarget_config import LAFANRetargetConfig
+
 from robot_descriptions.g1_mj_description import MJCF_PATH
 from recap.mujoco.model_editor import MJCFModelEditor
 import numpy as np
@@ -72,6 +74,27 @@ class G1_CMU_CONFIG(CMURetargetConfig):
     output_fps = 60
     dataset_path: str = "./data"
     mjcf_path = MODEL_PATH
+    body_to_model_map = {
+        "root": "torso_center",
+        "left_hip": "left_hip_roll_link",
+        "right_hip": "right_hip_roll_link",
+        "left_knee": "left_knee_link",
+        "right_knee": "right_knee_link",
+        "left_foot": "left_ankle_roll_link",
+        "right_foot": "right_ankle_roll_link",
+        "left_hand": "left_zero_link",
+        "right_hand": "right_zero_link",
+        "left_elbow": "left_elbow_pitch_link",
+        "right_elbow": "right_elbow_pitch_link",
+        "left_shoulder": "left_shoulder_roll_link",
+        "right_shoulder": "right_shoulder_roll_link",
+    }
+
+
+class G1_LAFAN_CONFIG(LAFANRetargetConfig):
+    template_scale = 0.8013491034507751
+    mjcf_path = MODEL_PATH
+    joint_limit_scale: float = 0.9
     body_to_model_map = {
         "root": "torso_center",
         "left_hip": "left_hip_roll_link",
