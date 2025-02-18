@@ -76,7 +76,7 @@ class AMASSMotionLoader:
     def filter_paths(self, name_blacklist, name_whitelist):
         filtered_paths = []
         for path in self.paths:
-            basename = os.path.basename(path)
+            basename = os.path.basename(path).lower()
 
             if name_blacklist is not None:
                 keep_clip = True

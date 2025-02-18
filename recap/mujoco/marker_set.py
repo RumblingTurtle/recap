@@ -31,7 +31,7 @@ class MarkerSet:
         max_markers (int): Maximum number of markers
     """
 
-    def __init__(self, max_markers: int = 100) -> None:
+    def __init__(self, max_markers: int = 200) -> None:
         """_summary_
 
         Args:

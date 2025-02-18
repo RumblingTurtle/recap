@@ -99,7 +99,7 @@ for name in robot_config.body_to_data_map.keys():
 
 # Optimize the beta parameters
 num_iterations = 10
-num_beta_steps = 1
+num_beta_steps = 200
 
 with MujocoRenderer(model_path) as renderer:
     for i in range(num_iterations):
@@ -110,7 +110,7 @@ with MujocoRenderer(model_path) as renderer:
             )
             # Convert positions to the same frame as the FK
             # NOTE: the frames are not aligned, so we need to subtract the root rotation
-            # But since we've done the IK for all the frames in the dataset, we're kinda aligned :)
+            # But since we've done the IK for the torso position and orientation task, we're kinda aligned :)
             local_dataset_positions = positions[:, data_idxs] - positions[:, data_root_idx].unsqueeze(1)
             local_fk_positions = body_positions[:, fk_idxs] - body_positions[:, fk_root_idx].unsqueeze(1)
             loss = (local_fk_positions - local_dataset_positions).square().sum(-1).sum(-1).mean()

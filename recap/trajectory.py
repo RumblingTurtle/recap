@@ -98,11 +98,12 @@ class BodyTimeSeries:
 
 
 class Trajectory:
-    def __init__(self):
+    def __init__(self, dt: float = 0.001):
         self.contacts = None
         self.bodies = {}
         self.qs = None
         self._joint_velocities = None
+        self.dt = dt
 
     def add_sample(
         self,
@@ -121,7 +122,6 @@ class Trajectory:
             self.qs = pose_data.q
             self.body_aliases = pose_data.body_aliases
             self.model_root = pose_data.model_root
-            self.dt = pose_data.dt
             self.joint_order = pose_data.joint_order
         else:
             self.contacts = np.vstack([self.contacts, contacts])

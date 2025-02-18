@@ -8,6 +8,7 @@ from recap.cmu.retarget import (
     CMU_RUNNING,
     CMU_STAND,
     CMU_DANCE,
+    CMU_DATASET_FPS,
 )
 from recap.mujoco.renderer import MujocoRenderer
 from recap.config.robot.g1 import G1_CMU_CONFIG
@@ -45,7 +46,7 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
             retargetee.set_skeleton(subject_id=subject)
             for motion_idx in tqdm(indices):
                 retargetee.set_motion(subject_id=subject, motion_id=motion_idx)
-                trajectory = Trajectory()
+                trajectory = Trajectory(dt=1.0 / CMU_DATASET_FPS)
                 try:
                     for pose_data in retargetee:
                         if RENDER:

@@ -1,15 +1,19 @@
 import torch
 import numpy as np
 import quaternion
+from torch.nn import functional as F
 
 
 def normalize(quaternions: torch.Tensor):
-    return positive_quat(quaternions / torch.norm(quaternions, dim=1).unsqueeze(1))
+    target_quat = None
+    # Normalization is done in the backward pass if the input requires grad
+    # Can't normalize if there is a backward pass because of the inplace operation
+    if quaternions.requires_grad:
+        target_quat = quaternions
+    else:
+        target_quat = F.normalize(quaternions)
 
-
-def positive_quat(quat: torch.Tensor):
-    quat[quat[:, 0] < 0] *= -1
-    return quat
+    return torch.where(target_quat[:, 0].unsqueeze(1) < 0, -target_quat, target_quat)
 
 
 def axis_angle_to_quat(axis: torch.Tensor, angle: torch.Tensor) -> torch.Tensor:
@@ -78,13 +82,37 @@ def quat_inv(q: torch.Tensor) -> torch.Tensor:
     return normalize(q * torch.tensor([[1, -1, -1, -1]], device=q.device))
 
 
+def angular_velocity(q1: torch.Tensor, q2: torch.Tensor, dt: float):
+    need_flatten = len(q1.shape) > 2
+    batch_size = q1.shape[0]
+    if need_flatten:
+        q1 = q1.view(-1, 4)
+        q2 = q2.view(-1, 4)
+    velocities = (2 / dt) * torch.column_stack(
+        [
+            q1[:, 0] * q2[:, 1] - q1[:, 1] * q2[:, 0] - q1[:, 2] * q2[:, 3] + q1[:, 3] * q2[:, 2],
+            q1[:, 0] * q2[:, 2] + q1[:, 1] * q2[:, 3] - q1[:, 2] * q2[:, 0] - q1[:, 3] * q2[:, 1],
+            q1[:, 0] * q2[:, 3] - q1[:, 1] * q2[:, 2] + q1[:, 2] * q2[:, 1] - q1[:, 3] * q2[:, 0],
+        ],
+    )
+    if need_flatten:
+        return velocities.view((batch_size, -1, 3))
+    return velocities
+
+
 def yaw_matrix(rotation_matrix: np.ndarray):
     """
     Returns a quaternion that keeps only the yaw rotation of the given rotation matrix
     """
+
     quat_yaw = quaternion.from_rotation_matrix(rotation_matrix)
-    quat_yaw.x = 0.0
-    quat_yaw.y = 0.0
+    if len(rotation_matrix.shape) == 2:
+        quat_yaw.x = 0.0
+        quat_yaw.y = 0.0
+    else:
+        np_quats = quaternion.as_float_array(quat_yaw)
+        np_quats[:, 1:3] = 0
+        quat_yaw = quaternion.from_float_array(np_quats)
     return quaternion.as_rotation_matrix(np.normalized(quat_yaw))
 
 

@@ -16,3 +16,5 @@ data/
 *.TXT
 
 *.egg-info
+
+*.pth

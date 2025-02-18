@@ -23,7 +23,7 @@ wbik_params = robots[ROBOT_NAME]
 data_loader = AMASSMotionLoader(
     datasets_path=os.path.join(os.path.dirname(__file__), "../data"),
     beta=wbik_params.beta,
-    name_blacklist=["handrail", "jump", "box", "hop"],
+    name_blacklist=["handrail", "jump", "box", "hop", "push"],
     target_fps=30,
     template_scale=wbik_params.template_scale,
 )
@@ -41,7 +41,7 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
         motion_name, motion_data = data
         print(motion_name)
         retargetee.set_motion(motion_data)
-        trajectory = Trajectory()
+        trajectory = Trajectory(1 / data_loader.target_fps)
         try:
             for pose_data in retargetee:
                 trajectory.add_sample(pose_data)
