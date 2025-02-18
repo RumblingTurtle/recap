@@ -15,7 +15,7 @@ ARROW_OFFSETS = [
     np.array([0, 0, 0.7071068, 0.7071068]),
 ]
 
-ARROW_ROTATIONS = [quat2mat(quat) for quat in ARROW_OFFSETS]
+ARROW_ROTATIONS = [quat2mat(quat, True) for quat in ARROW_OFFSETS]
 
 
 class MujocoRenderer:
