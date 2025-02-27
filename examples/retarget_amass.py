@@ -33,7 +33,7 @@ output_path = os.path.join(os.path.dirname(__file__), f"./motions/amass/{ROBOT_N
 if not os.path.exists(output_path):
     os.makedirs(output_path)
 
-with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
+with MujocoRenderer(robots[ROBOT_NAME].mjcf_path, "amass.mp4") as renderer:
     for data in tqdm(data_loader):
         if data is None:
             continue
@@ -53,3 +53,4 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
             continue
         out_filename = f"amass_{ROBOT_NAME}_{motion_name}.npy"
         trajectory.save(os.path.join(output_path, out_filename))
+        renderer.flush_frames(fps=data_loader.target_fps)

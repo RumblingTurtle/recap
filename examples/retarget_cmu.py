@@ -19,7 +19,7 @@ robots = {
     "h1": (H1_CMU_CONFIG),
 }
 
-ROBOT_NAME = "g1"
+ROBOT_NAME = "h1"
 RENDER = True
 
 cfg = robots[ROBOT_NAME]
@@ -36,7 +36,7 @@ skills = [
     ("running", CMU_RUNNING),
     ("stand", CMU_STAND),
 ]
-with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
+with MujocoRenderer(robots[ROBOT_NAME].mjcf_path, "cmu.mp4") as renderer:
     for skill_name, skill in skills:
         counter = 0
         for sample in skill:
@@ -58,3 +58,4 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
                     continue
                 out_filename = f"cmu_{ROBOT_NAME}_{skill_name}_{subject}_{motion_idx}.npy"
                 trajectory.save(os.path.join(output_path, out_filename))
+                renderer.flush_frames(fps=CMU_DATASET_FPS)

@@ -4,6 +4,17 @@ from recap.mujoco.marker_set import MarkerSet, MarkerType
 from mujoco import viewer
 from recap.quat_utils import quat2mat
 import traceback
+import os
+
+try:
+    import mediapy
+
+    VIDEO_ENABLED = True
+except ImportError:
+    VIDEO_ENABLED = False
+    print(
+        f"mediapy package not found. Video export is disabled{os.linesep}You can install it by running: pip install mediapy"
+    )
 
 AXIS_LENGTH = 0.3
 AXIS_RADIUS = 0.01
@@ -19,16 +30,24 @@ ARROW_ROTATIONS = [quat2mat(quat, True) for quat in ARROW_OFFSETS]
 
 
 class MujocoRenderer:
-    def __init__(
-        self,
-        mjcf_path: str,
-    ):
+    def __init__(self, mjcf_path: str, video_path: str = None):
         self.setup_scene(mjcf_path)
         self.reset()
         self.camera_tracking = True
 
         self.markers = MarkerSet()
         self.marker_offset = 0
+        self.video_path = video_path
+        if video_path is not None and VIDEO_ENABLED:
+            self.frames = []
+            self.renderer = mujoco.Renderer(self.model)
+            self.camera = mujoco.MjvCamera()
+        else:
+            self.frames = None
+
+    @property
+    def export_video(self):
+        return self.frames is not None
 
     def __enter__(self):
         self.viewer = viewer.launch_passive(
@@ -43,6 +62,21 @@ class MujocoRenderer:
     def __exit__(self, exc_type, exc_value, tb):
         self.close()
         traceback.print_tb(tb)
+
+    def flush_frames(self, fps=None):
+        if not VIDEO_ENABLED:
+            return
+
+        if fps is None:
+            fps = 1 / self.model.opt.timestep
+
+        if self.export_video and len(self.frames) != 0:
+            mediapy.write_video(
+                self.video_path,
+                self.frames,
+                fps=fps,
+            )
+            self.frames = []
 
     def setup_scene(self, mjcf_path: str):
         self.spec = mujoco.MjSpec.from_file(mjcf_path)
@@ -116,6 +150,10 @@ class MujocoRenderer:
     def step(self) -> None:
         mujoco.mj_forward(self.model, self.data)
         with self.viewer.lock():
+            if self.export_video:
+                self.renderer.update_scene(self.data, self.camera)
+            self.update_markers()
+
             if self.camera_tracking:
                 self.viewer.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
                 self.viewer.cam.trackbodyid = 0
@@ -124,7 +162,17 @@ class MujocoRenderer:
                 self.viewer.cam.fixedcamid = -1
                 self.viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FREE
 
-            self.update_markers()
+            if self.export_video:
+                self.camera.elevation = self.viewer.cam.elevation
+                self.camera.azimuth = self.viewer.cam.azimuth
+                self.camera.lookat = self.viewer.cam.lookat
+                self.camera.trackbodyid = self.viewer.cam.trackbodyid
+                self.camera.fixedcamid = self.viewer.cam.fixedcamid
+                self.camera.type = self.viewer.cam.type
+
+            if self.export_video:
+                self.frames.append(self.renderer.render())
+
         self.viewer.sync()
         self.marker_offset = 0
 
@@ -148,7 +196,19 @@ class MujocoRenderer:
                         self.markers.marker_rotations[9 * geom_id : 9 * geom_id + 9].copy(),
                         self.markers.marker_colors[4 * geom_id : 4 * geom_id + 4].copy(),
                     )
+                    if self.export_video:
+                        mujoco.mjv_initGeom(
+                            self.renderer.scene.geoms[self.renderer.scene.ngeom + ngeoms],
+                            self.markers.marker_types[geom_id],
+                            self.markers.marker_sizes[3 * geom_id : 3 * geom_id + 3].copy(),
+                            self.markers.marker_positions[3 * geom_id : 3 * geom_id + 3].copy(),
+                            self.markers.marker_rotations[9 * geom_id : 9 * geom_id + 9].copy(),
+                            self.markers.marker_colors[4 * geom_id : 4 * geom_id + 4].copy(),
+                        )
                     ngeoms += 1
+
+            if self.export_video:
+                self.renderer.scene.ngeom = self.renderer.scene.ngeom + ngeoms
             self.viewer.user_scn.ngeom = ngeoms
             self.markers.dirty_markers = False
 
