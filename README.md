@@ -1,6 +1,10 @@
 # ReCAP
 
 Motion capture retargeting library for humanoid robots
+<div align="center">
+  <img src="media/g1.gif" width="300" />
+  <img src="media/h1.gif" width="300" />
+</div>
 
 ## Features
 - Easy to use inerface for solving IK for humanoid robots
