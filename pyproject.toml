@@ -11,7 +11,7 @@ dependencies = [
     "robot_descriptions",
     "pin == 3.3.1",
     "pin_pink == 3.1.0",
-    "mujoco >= 3.2.7",
+    "mujoco == 3.2.7",
     "torch == 2.6.0",
     "joblib == 1.4.2",
     "scipy == 1.15.1",
