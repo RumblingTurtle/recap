@@ -70,8 +70,7 @@ class AMASSMotionLoader:
             eigvec.requires_grad = False
             self.dmpl_templates[gender]["eigvec"] = eigvec
 
-        self.beta = torch.from_numpy(beta) if beta is not None else None
-        self.beta = self.beta.to(self.device)
+        self.beta = torch.from_numpy(beta).to(self.device) if beta is not None else None
 
     def filter_paths(self, name_blacklist, name_whitelist):
         filtered_paths = []
