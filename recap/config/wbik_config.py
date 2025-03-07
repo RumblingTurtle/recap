@@ -13,6 +13,7 @@ class WBIKConfig:
     com_pos_weight (float): weight for keeping the com close to the foot support line
     body_to_model_map (dict): MJCF to task name mapping of the corresponding frames
     step_dt (float): integration step size
+    extra_bodies (list[string]): names of the body in the xml for which to export transform data aside from the task bodies
     """
 
     mjcf_path: str
@@ -57,3 +58,4 @@ class WBIKConfig:
         "left_shoulder": "",
         "right_shoulder": "",
     }
+    extra_bodies = []

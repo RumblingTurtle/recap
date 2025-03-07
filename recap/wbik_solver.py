@@ -367,8 +367,10 @@ class WBIKSolver:
         of all tracked frames
         """
         transforms = []
+        added_bodies = []
         for frame_name in self.body_to_pin_id:
             mjcf_name = self.body_to_model_map[frame_name]
+            added_bodies.append(mjcf_name)
             body_transform = self.body(frame_name)
             transforms.append(
                 BodyTransform(
@@ -377,6 +379,17 @@ class WBIKSolver:
                     quaternion=quaternion.from_rotation_matrix(body_transform.rotation.copy()),
                 )
             )
+
+        for i, frame in enumerate(self.model.frames):
+            if frame.name not in added_bodies and frame.name in self.wbik_params.extra_bodies:
+                body_transform = self.configuration.data.oMf[i]
+                transforms.append(
+                    BodyTransform(
+                        name=frame.name,
+                        position=body_transform.translation.copy(),
+                        quaternion=quaternion.from_rotation_matrix(body_transform.rotation.copy()),
+                    )
+                )
 
         root_name = self.model.frames[list(self.model.parents).index(1)].name
 

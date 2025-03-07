@@ -56,6 +56,6 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path, "cmu.mp4") as renderer:
                 except NoSolutionException:
                     print(f"Skipping {subject} {motion_idx}")
                     continue
-                out_filename = f"cmu_{ROBOT_NAME}_{skill_name}_{subject}_{motion_idx}.npy"
+                out_filename = f"cmu_{ROBOT_NAME}_{skill_name}_{subject}_{motion_idx}"
                 trajectory.save(os.path.join(output_path, out_filename))
                 renderer.flush_frames(fps=CMU_DATASET_FPS)

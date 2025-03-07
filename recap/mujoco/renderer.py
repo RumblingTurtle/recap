@@ -30,8 +30,8 @@ ARROW_ROTATIONS = [quat2mat(quat, True) for quat in ARROW_OFFSETS]
 
 
 class MujocoRenderer:
-    def __init__(self, mjcf_path: str, video_path: str = None):
-        self.setup_scene(mjcf_path)
+    def __init__(self, mjcf_path: str, video_path: str = None, floor_height=0.0):
+        self.setup_scene(mjcf_path, floor_height)
         self.reset()
         self.camera_tracking = True
 
@@ -78,7 +78,7 @@ class MujocoRenderer:
             )
             self.frames = []
 
-    def setup_scene(self, mjcf_path: str):
+    def setup_scene(self, mjcf_path: str, floor_height: float):
         self.spec = mujoco.MjSpec.from_file(mjcf_path)
         self.spec.visual.quality.shadowsize = 8192
         ground = self.spec.worldbody.add_geom()
@@ -86,7 +86,7 @@ class MujocoRenderer:
         ground.name = "ground"
         ground.type = mujoco.mjtGeom.mjGEOM_PLANE
         ground.size = [0, 0, 0.05]
-        ground.pos = [0, 0, 0]
+        ground.pos = [0, 0, floor_height]
         ground.material = "floor_material"
 
         floor_texture = self.spec.add_texture()

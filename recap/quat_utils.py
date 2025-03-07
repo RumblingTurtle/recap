@@ -82,13 +82,17 @@ def quat_inv(q: torch.Tensor) -> torch.Tensor:
     return normalize(q * torch.tensor([[1, -1, -1, -1]], device=q.device))
 
 
-def angular_velocity(q1: torch.Tensor, q2: torch.Tensor, dt: float):
+def angular_velocity(q1, q2, dt: float):
     need_flatten = len(q1.shape) > 2
     batch_size = q1.shape[0]
     if need_flatten:
         q1 = q1.view(-1, 4)
         q2 = q2.view(-1, 4)
-    velocities = (2 / dt) * torch.column_stack(
+    if isinstance(q1, torch.Tensor):
+        stack_func = torch.column_stack
+    else:
+        stack_func = np.column_stack
+    velocities = (2 / dt) * stack_func(
         [
             q1[:, 0] * q2[:, 1] - q1[:, 1] * q2[:, 0] - q1[:, 2] * q2[:, 3] + q1[:, 3] * q2[:, 2],
             q1[:, 0] * q2[:, 2] + q1[:, 1] * q2[:, 3] - q1[:, 2] * q2[:, 0] - q1[:, 3] * q2[:, 1],

@@ -81,6 +81,7 @@ class H1_AMASS_CONFIG(AMASSRetargetConfig):
         ],
     )
     template_scale = 1.0128
+    extra_bodies = ["imu"]
 
 
 class H1_CMU_CONFIG(CMURetargetConfig):
@@ -147,3 +148,4 @@ class H1_LAFAN_CONFIG(LAFANRetargetConfig):
         "left_shoulder": "left_shoulder_roll_link",
         "right_shoulder": "right_shoulder_roll_link",
     }
+    extra_bodies = ["imu"]

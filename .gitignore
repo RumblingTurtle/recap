@@ -6,6 +6,7 @@ data/
 
 *.so
 *.npy
+*.pkl
 *.zip
 *.urdf
 *.xml

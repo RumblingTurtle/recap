@@ -14,7 +14,6 @@ dependencies = [
     "mujoco == 3.2.7",
     "torch == 2.6.0",
     "joblib == 1.4.2",
-    "scipy == 1.15.1",
     "mediapy == 1.2.2",
 ]
 

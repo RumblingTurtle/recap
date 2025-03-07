@@ -1,10 +1,7 @@
 import os
-from tqdm import tqdm
 from recap.wbik_solver import NoSolutionException
 from recap.trajectory import Trajectory
 from recap.lafan.retarget import LAFANRetarget, MOTION_PATHS
-import time
-import numpy as np
 from recap.config.robot.g1 import G1_LAFAN_CONFIG
 from recap.config.robot.h1 import H1_LAFAN_CONFIG
 
@@ -28,6 +25,13 @@ if not os.path.exists(output_path):
 
 with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
     for path in MOTION_PATHS:
+        skip_motion = True
+        for motion_type in ["run", "walk", "sprint"]:
+            if motion_type in path:
+                skip_motion = False
+
+        if skip_motion:
+            continue
         retargetee.set_motion(path)
         motion_name = os.path.basename(path).split(".")[0]
         trajectory = Trajectory(1 / 30)
@@ -40,5 +44,5 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
         except NoSolutionException:
             print(f"Skipping {path}")
             continue
-        out_filename = f"lafan_{ROBOT_NAME}_{motion_name}.npy"
+        out_filename = f"lafan_{ROBOT_NAME}_{motion_name}"
         trajectory.save(os.path.join(output_path, out_filename))

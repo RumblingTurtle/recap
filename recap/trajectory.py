@@ -1,11 +1,20 @@
 import numpy as np
 import quaternion
-from scipy.signal import savgol_filter
 from dataclasses import dataclass
+import pickle
+from recap.quat_utils import angular_velocity
 
 
 def derivative(data, sample_dt):
-    return savgol_filter(x=data, polyorder=3, deriv=1, window_length=9, delta=sample_dt, axis=0)
+    velocities = (
+        np.diff(
+            data,
+            axis=0,
+        )
+        / sample_dt
+    )
+
+    return np.concatenate([velocities, velocities[-1][None, :]])
 
 
 @dataclass
@@ -81,10 +90,9 @@ class BodyTimeSeries:
     @property
     def angular_velocities(self):
         if self._angular_velocities is None:
-            quaternions = quaternion.from_float_array(self.quaternions)
-            self._angular_velocities = quaternion.angular_velocity(
-                quaternions, np.arange(quaternions.shape[0]) * self.sample_dt
-            )
+            ang_vel = angular_velocity(self.quaternions[:-1], self.quaternions[1:], self.sample_dt)
+            ang_vel = np.concatenate([ang_vel, ang_vel[-1][None, :]])
+            self._angular_velocities = ang_vel
 
         return self._angular_velocities
 
@@ -131,7 +139,7 @@ class Trajectory:
             if "world" in transform.name:
                 continue
             if transform.name not in self.bodies.keys():
-                self.bodies[transform.name] = BodyTimeSeries(transform.name, pose_data.dt)
+                self.bodies[transform.name] = BodyTimeSeries(transform.name, self.dt)
             self.bodies[transform.name].add_sample(transform.position, transform.quaternion)
 
     @property
@@ -164,6 +172,26 @@ class Trajectory:
                 out_dict["transforms"][name][k] = v
         return out_dict
 
+    def convert_ndarrays(self, data_dict):
+        for k, v in data_dict.items():
+            if isinstance(v, np.ndarray):
+                data_dict[k] = v.tolist()
+            if isinstance(v, dict):
+                data_dict[k] = self.convert_ndarrays(v)
+        return data_dict
+
     def save(self, path):
-        trajectory_dict = self.to_dict()
-        np.save(path, trajectory_dict, allow_pickle=True)
+        # Have to remove numpy arrays entirely
+        # to preserve compatibility between versions
+        trajectory_dict = self.convert_ndarrays(self.to_dict())
+        with open(path + ".pkl", "wb") as f:
+            pickle.dump(trajectory_dict, f)
+
+
+def to_numpy(data_dict):
+    for k, v in data_dict.items():
+        if isinstance(v, list):
+            data_dict[k] = np.array(v)
+        if isinstance(v, dict):
+            data_dict[k] = to_numpy(v)
+    return data_dict

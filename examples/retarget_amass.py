@@ -15,7 +15,7 @@ robots = {
     "h1": H1_AMASS_CONFIG,
 }
 
-ROBOT_NAME = "g1"
+ROBOT_NAME = "h1"
 RENDER = True
 
 wbik_params = robots[ROBOT_NAME]
@@ -24,6 +24,7 @@ data_loader = AMASSMotionLoader(
     datasets_path=os.path.join(os.path.dirname(__file__), "../data"),
     beta=wbik_params.beta,
     name_blacklist=["handrail", "jump", "box", "hop", "push"],
+    name_whitelist=["waltz10"],
     target_fps=30,
     template_scale=wbik_params.template_scale,
 )
@@ -51,6 +52,6 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path, "amass.mp4") as renderer:
         except NoSolutionException:
             print(f"Skipping {motion_name}")
             continue
-        out_filename = f"amass_{ROBOT_NAME}_{motion_name}.npy"
+        out_filename = f"amass_{ROBOT_NAME}_{motion_name}"
         trajectory.save(os.path.join(output_path, out_filename))
         renderer.flush_frames(fps=data_loader.target_fps)

@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 import glob
 import time
@@ -12,13 +13,14 @@ robots = {
     "g1": G1_MODEL_PATH,
 }
 
-ROBOT_NAME = "g1"
-motion_files = glob.glob(os.path.join(os.path.dirname(__file__), f"./motions/{dataset[0]}/{ROBOT_NAME}/*.npy"))
+ROBOT_NAME = "h1"
+motion_files = glob.glob(os.path.join(os.path.dirname(__file__), f"./motions/{dataset[0]}/{ROBOT_NAME}/*.pkl"))
 with MujocoRenderer(robots[ROBOT_NAME]) as renderer:
     for motion_file in motion_files:
-        motion = np.load(motion_file, allow_pickle=True).item()
+        with open(motion_file, "rb") as f:
+            motion = pickle.load(f)
         data_dt = motion["dt"]
-        qs = motion["q"]
+        qs = np.array(motion["q"])
         for frame_idx in range(qs.shape[0]):
             renderer.set_configuration(qs[frame_idx], pin_notation=True)
             renderer.step()
