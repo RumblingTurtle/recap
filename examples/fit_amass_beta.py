@@ -17,19 +17,13 @@ from recap.amass.transforms import calculate_body_transforms
 import torch
 from tqdm import tqdm
 
-robot_name = "g1"
+robot_name = "h1"
 robots = {
     "h1": (H1_AMASS_CONFIG, H1_MODEL_PATH, 0.01),
     "g1": (G1_AMASS_CONFIG, G1_MODEL_PATH, 0.01),
 }
 robot_config, model_path, lr = robots[robot_name]
-# At this point we're only interested in the link alignment, so we disable all velocity tasks
-robot_config.task_weights["joint_velocity"] = 0.0
-robot_config.task_weights["root_linear_velocity"] = 0.0
-robot_config.task_weights["root_angular_velocity"] = 0.0
 
-# Disable contact velocity to avoid foot sticking to the ground
-robot_config.contact_velocity = -1
 
 # Initialize the beta variable and optimizer
 beta = torch.autograd.Variable(
@@ -46,7 +40,7 @@ template_scale = torch.autograd.Variable(
 optimizer = torch.optim.Adam([beta, template_scale], lr=lr)
 
 data_loader = AMASSMotionLoader(
-    motion_filename="912_3_01_poses.npz",
+    motion_filename="walkbackwards_stand_poses.npz",
     datasets_path=os.path.join(os.path.dirname(__file__), "../data"),
     beta=beta.to("cpu").detach().numpy(),
     device="cuda",
@@ -115,6 +109,7 @@ with MujocoRenderer(model_path) as renderer:
             local_fk_positions = body_positions[:, fk_idxs] - body_positions[:, fk_root_idx].unsqueeze(1)
             loss = (local_fk_positions - local_dataset_positions).square().sum(-1).sum(-1).mean()
             loss += (1 - template_scale).square().sum()
+            loss += 10 * beta.square().sum()
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

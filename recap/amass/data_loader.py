@@ -4,7 +4,7 @@ import joblib
 import torch
 import numpy as np
 
-from recap.amass.motion_wrapper import AMASSMotionWrapper
+from recap.amass.motion_wrapper import AMASSMotionWrapper, SMPLH_JOINT_NAMES_TO_IDX
 from recap.amass.transforms import calculate_body_transforms
 
 
@@ -153,6 +153,11 @@ class AMASSMotionLoader:
                 kintree_table=self.body_templates[gender]["kintree_table"],
                 template_scale=self.template_scale,
             )
+
+            heel_indices = [SMPLH_JOINT_NAMES_TO_IDX["left_ankle"], SMPLH_JOINT_NAMES_TO_IDX["right_ankle"]]
+            if torch.any(positions[:, heel_indices, 2] > positions[:, 0, 2].mean() * 0.3).sum().item() > 0:
+                return None
+
             return clip_name, AMASSMotionWrapper(positions=positions, rotations=rotations)
 
     def _load_and_validate_clip(self, path):

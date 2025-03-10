@@ -23,8 +23,8 @@ wbik_params = robots[ROBOT_NAME]
 data_loader = AMASSMotionLoader(
     datasets_path=os.path.join(os.path.dirname(__file__), "../data"),
     beta=wbik_params.beta,
-    name_blacklist=["handrail", "jump", "box", "hop", "push"],
-    name_whitelist=["waltz10"],
+    name_blacklist=["handrail", "jump", "box", "hop", "push", "kick", "dance", "punch", "sit"],
+    name_whitelist=["run", "walk", "stand"],
     target_fps=30,
     template_scale=wbik_params.template_scale,
 )

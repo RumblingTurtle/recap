@@ -62,26 +62,43 @@ class H1_AMASS_CONFIG(AMASSRetargetConfig):
     }
     beta = np.array(
         [
-            -3.5657,
-            -2.1251,
-            4.6726,
-            10.7957,
-            8.8308,
-            9.1279,
-            9.8109,
-            -3.4021,
-            2.5436,
-            -7.7658,
-            6.8073,
-            -6.5959,
-            -11.9745,
-            -10.1198,
-            -8.4182,
-            10.9544,
+            -4.7614e-04,
+            3.2246e-05,
+            1.1791e-04,
+            1.0533e-04,
+            -2.7940e-04,
+            -2.2915e-04,
+            -1.1935e-04,
+            5.6739e-04,
+            1.2418e-06,
+            -1.5346e-05,
+            4.4622e-06,
+            -5.5479e-04,
+            -1.3216e-05,
+            -9.5975e-04,
+            -1.6157e-05,
+            3.3748e-05,
         ],
     )
-    template_scale = 1.0128
-    extra_bodies = ["imu"]
+    template_scale = 1.1259
+    extra_bodies = ["imu_link"]
+    task_weights = {
+        "joint_velocity": 2.0,
+        "root_linear_velocity": 2.0,
+        "root_angular_velocity": 2.0,
+        "position": {
+            "root": 10.0,
+            "foot": 10.0,
+            "hand": 4.0,
+            "knee": 4.0,
+            "elbow": 4.0,
+            "com": 1.0,
+        },
+        "rotation": {
+            "root": 5.0,
+            "foot": 1.0,
+        },
+    }
 
 
 class H1_CMU_CONFIG(CMURetargetConfig):
