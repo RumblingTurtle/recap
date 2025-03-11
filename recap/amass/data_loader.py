@@ -19,9 +19,11 @@ class AMASSMotionLoader:
         shuffle=False,
         name_blacklist=None,
         name_whitelist=None,
+        skip_stairs=False,
         device="cpu",
     ):
         self.datasets_path = datasets_path
+        self.skip_stairs = skip_stairs
         self.device = device
         self.target_fps = target_fps
         self.template_scale = torch.tensor(template_scale, device=device)
@@ -155,7 +157,11 @@ class AMASSMotionLoader:
             )
 
             heel_indices = [SMPLH_JOINT_NAMES_TO_IDX["left_ankle"], SMPLH_JOINT_NAMES_TO_IDX["right_ankle"]]
-            if torch.any(positions[:, heel_indices, 2] > positions[:, 0, 2].mean() * 0.3).sum().item() > 0:
+            if (
+                self.skip_stairs
+                and torch.any(positions[:, heel_indices, 2] > positions[:, 0, 2].mean() * 0.3).sum().item() > 0
+            ):
+                print("Stairs present in the clip")
                 return None
 
             return clip_name, AMASSMotionWrapper(positions=positions, rotations=rotations)
@@ -189,6 +195,7 @@ class AMASSMotionLoader:
                 return None
 
         if seq_length is None or seq_length < 10:
+            print("sequence duration is too small")
             return None
 
         # Trim sequences to valid length
