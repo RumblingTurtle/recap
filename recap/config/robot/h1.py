@@ -81,24 +81,31 @@ class H1_AMASS_CONFIG(AMASSRetargetConfig):
         ],
     )
     template_scale = 1.1259
-    extra_bodies = ["imu_link"]
+    extra_bodies = [
+        "imu_link",
+        "left_elbow_link",
+        "right_elbow_link",
+        "left_shoulder_yaw_link",
+        "right_shoulder_yaw_link",
+    ]
     task_weights = {
         "joint_velocity": 2.0,
-        "root_linear_velocity": 2.0,
-        "root_angular_velocity": 2.0,
+        "max_joint_acceleration": 120,
+        "max_root_lin_acceleration": 200,
+        "max_root_ang_acceleration": 200,
         "position": {
-            "root": 10.0,
+            "root": 2.0,
             "foot": 10.0,
             "hand": 4.0,
             "knee": 4.0,
             "elbow": 4.0,
-            "com": 1.0,
         },
         "rotation": {
             "root": 5.0,
             "foot": 1.0,
         },
     }
+
 
 
 class H1_CMU_CONFIG(CMURetargetConfig):

@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class WBIKConfig:
     """
     mjcf_path (str): Path to the MJCF model of the robot
@@ -28,15 +31,15 @@ class WBIKConfig:
     step_dt: float = 1 / 60
     task_weights = {
         "joint_velocity": 2.0,
-        "root_linear_velocity": 2.0,
-        "root_angular_velocity": 2.0,
+        "max_joint_acceleration": np.inf,
+        "max_root_lin_acceleration": np.inf,
+        "max_root_ang_acceleration": np.inf,
         "position": {
             "root": 2.0,
             "foot": 10.0,
             "hand": 4.0,
             "knee": 4.0,
             "elbow": 4.0,
-            "com": 1.0,
         },
         "rotation": {
             "root": 5.0,
