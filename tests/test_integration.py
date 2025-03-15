@@ -4,12 +4,22 @@ import matplotlib.pyplot as plt
 import os
 from recap.trajectory import to_numpy
 
-file_path = os.path.join(os.path.dirname(__file__), f"../examples/motions/amass/h1/amass_h1_dance_waltz10_poses.pkl")
+file_path = os.path.join(os.path.dirname(__file__), f"../examples/motions/amass/h1/amass_h1_run_stand_poses.pkl")
 with open(file_path, "rb") as f:
     motion = pickle.load(f)
 motion = to_numpy(motion)
 
 data_dt = motion["dt"]
+j_pos = motion["joint_positions"]
+j_vel = motion["joint_velocities"]
+integrated_jpos = j_pos[0] + np.cumsum(j_vel * data_dt, axis=0)
+t = np.arange(0, j_pos.shape[0] * data_dt, data_dt)
+for j_idx in range(j_pos.shape[1]):
+    plt.figure()
+    plt.plot(t, j_pos[:, j_idx], label=f"{motion['joint_order'][j_idx]} actual")
+    plt.plot(t, integrated_jpos[:, j_idx], label=f"{motion['joint_order'][j_idx]} int")
+    plt.legend()
+
 pos = motion["transforms"]["imu"]["position"]
 vel = motion["transforms"]["imu"]["linear_velocity"]
 integrated_pos = pos[0, :2] + np.cumsum(vel[:, :2] * data_dt, axis=0)

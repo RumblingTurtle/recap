@@ -57,13 +57,17 @@ class WBIKConfig:
     .....
     task_weights = {
         """
-        The first three tasks determine relative weights 
-        of the joint velocity, root linear velocity and root angular velocity tasks.
-        Their goal is to keep the new IK solutions close the previous ones.
+        The first task determines relative weights 
+        of the joint velocity
         """
         "joint_velocity": 2.0,
-        "root_linear_velocity": 2.0,
-        "root_angular_velocity": 2.0,
+
+        """
+        The last three limit maximum linear, angular root and joint accelerations
+        """
+        "max_joint_acceleration": np.inf,
+        "max_root_lin_acceleration": np.inf,
+        "max_root_ang_acceleration": np.inf,
 
         "position": {
             """
@@ -76,7 +80,6 @@ class WBIKConfig:
             "hand": 4.0,
             "knee": 4.0,
             "elbow": 4.0,
-            "com": 1.0,
         },
         "rotation": {
             """

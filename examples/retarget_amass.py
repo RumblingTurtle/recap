@@ -3,7 +3,7 @@ from tqdm import tqdm
 from recap.wbik_solver import NoSolutionException
 from recap.trajectory import Trajectory
 from recap.amass.retarget import AMASSRetarget
-from recap.amass.data_loader import AMASSMotionLoader
+from recap.amass.data_loader import AMASSMotionLoader,BLACKLISTED_NAMES
 
 from recap.config.robot.g1 import G1_AMASS_CONFIG
 from recap.config.robot.h1 import H1_AMASS_CONFIG
@@ -23,9 +23,9 @@ wbik_params = robots[ROBOT_NAME]
 data_loader = AMASSMotionLoader(
     datasets_path=os.path.join(os.path.dirname(__file__), "../data"),
     beta=wbik_params.beta,
-    name_blacklist=["handrail", "jump", "box", "hop", "push", "kick", "dance", "punch", "sit"],
+    name_blacklist=BLACKLISTED_NAMES,
     name_whitelist=["run", "walk", "stand"],
-    target_fps=30,
+    target_fps=50,
     template_scale=wbik_params.template_scale,
 )
 retargetee = AMASSRetarget(wbik_params=wbik_params)
