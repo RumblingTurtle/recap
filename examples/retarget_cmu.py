@@ -46,7 +46,7 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path, "cmu.mp4") as renderer:
             retargetee.set_skeleton(subject_id=subject)
             for motion_idx in tqdm(indices):
                 retargetee.set_motion(subject_id=subject, motion_id=motion_idx)
-                trajectory = Trajectory(dt=1.0 / CMU_DATASET_FPS)
+                trajectory = Trajectory(sample_dt=1.0 / CMU_DATASET_FPS)
                 try:
                     for pose_data in retargetee:
                         if RENDER:

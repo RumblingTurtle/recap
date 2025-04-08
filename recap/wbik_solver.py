@@ -128,6 +128,10 @@ class WBIKSolver:
         self.targets = {}
         self.prev_targets = {}
 
+        q_init = np.zeros(self.model.nq)
+        q_init[6] = 1
+        self.configuration = pink.Configuration(self.model, self.data, q_init)
+
         self.solver = qpsolvers.available_solvers[0]
         if "quadprog" in qpsolvers.available_solvers:
             self.solver = "quadprog"
@@ -331,8 +335,11 @@ class WBIKSolver:
                 )
             )
 
+        root_name = self.model.frames[list(self.model.parents).index(1)].name
         for i, frame in enumerate(self.model.frames):
-            if frame.name not in added_bodies and frame.name in self.wbik_params.extra_bodies:
+            is_root_frame = frame.name == root_name and frame.name not in added_bodies
+            is_extra_body = frame.name in self.wbik_params.extra_bodies and frame.name not in added_bodies
+            if is_root_frame or is_extra_body:
                 body_transform = self.configuration.data.oMf[i]
                 transforms.append(
                     BodyTransform(
@@ -341,8 +348,6 @@ class WBIKSolver:
                         quaternion=quaternion.from_rotation_matrix(body_transform.rotation.copy()),
                     )
                 )
-
-        root_name = self.model.frames[list(self.model.parents).index(1)].name
 
         pose_data = PoseData(
             transforms=transforms,

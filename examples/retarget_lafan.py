@@ -34,7 +34,7 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path) as renderer:
             continue
         retargetee.set_motion(path)
         motion_name = os.path.basename(path).split(".")[0]
-        trajectory = Trajectory(1 / 30)
+        trajectory = Trajectory(sample_dt=1 / 30)
         try:
             for pose_data in retargetee:
                 if RENDER:

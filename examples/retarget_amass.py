@@ -42,7 +42,7 @@ with MujocoRenderer(robots[ROBOT_NAME].mjcf_path, "amass.mp4") as renderer:
         motion_name, motion_data = data
         print(motion_name)
         retargetee.set_motion(motion_data)
-        trajectory = Trajectory(1 / data_loader.target_fps)
+        trajectory = Trajectory(sample_dt=1 / data_loader.target_fps)
         try:
             for pose_data in retargetee:
                 trajectory.add_sample(pose_data)
