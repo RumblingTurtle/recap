@@ -3,7 +3,7 @@ from tqdm import tqdm
 from recap.wbik_solver import NoSolutionException
 from recap.trajectory import Trajectory
 from recap.amass.retarget import AMASSRetarget
-from recap.amass.data_loader import AMASSMotionLoader,BLACKLISTED_NAMES
+from recap.amass.data_loader import AMASSMotionLoader, BLACKLISTED_NAMES
 
 from recap.config.robot.g1 import G1_AMASS_CONFIG
 from recap.config.robot.h1 import H1_AMASS_CONFIG

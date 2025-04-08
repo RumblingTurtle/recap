@@ -107,7 +107,6 @@ class H1_AMASS_CONFIG(AMASSRetargetConfig):
     }
 
 
-
 class H1_CMU_CONFIG(CMURetargetConfig):
     spine_scale = 1
     shoulder_scale = 1
