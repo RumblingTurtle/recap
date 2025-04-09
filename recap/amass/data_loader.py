@@ -82,7 +82,7 @@ class AMASSMotionLoader:
             if name_blacklist is not None:
                 keep_clip = True
                 for skippable_name in name_blacklist:
-                    if skippable_name in basename:
+                    if skippable_name.lower() in basename:
                         keep_clip = False
                         break
 
@@ -92,7 +92,7 @@ class AMASSMotionLoader:
             if name_whitelist is not None:
                 keep_clip = False
                 for keepable_name in name_whitelist:
-                    if keepable_name in basename:
+                    if keepable_name.lower() in basename:
                         keep_clip = True
                         break
 
@@ -164,6 +164,10 @@ class AMASSMotionLoader:
                 print("Stairs present in the clip")
                 return None
 
+            if torch.any(rotations[:, 0, 2, 2] < 0.5).item():
+                print("Excessive tilt present in the clip")
+                return None
+
             return clip_name, AMASSMotionWrapper(positions=positions, rotations=rotations)
 
     def _load_and_validate_clip(self, path):
@@ -179,10 +183,15 @@ class AMASSMotionLoader:
 
         clip_framerate = clip_dict["mocap_framerate"]
         skip = int(clip_framerate / self.target_fps)
+        frame_count = clip_dict["poses"].shape[0]
+        times = np.arange(frame_count, dtype=np.float32) / clip_framerate
+        total_time = times[-1]
+        time_samples = np.arange(0, total_time, step=1.0 / self.target_fps)
+        skip = np.abs(time_samples - times[:, None]).argmin(0)
 
-        poses = torch.from_numpy(clip_dict["poses"][::skip]).to(self.device)
-        root_pos = torch.from_numpy(clip_dict["trans"][::skip]).to(self.device)
-        blendshapes = torch.from_numpy(clip_dict["dmpls"][::skip]).to(self.device)
+        poses = torch.from_numpy(clip_dict["poses"][skip]).to(self.device)
+        root_pos = torch.from_numpy(clip_dict["trans"][skip]).to(self.device)
+        blendshapes = torch.from_numpy(clip_dict["dmpls"][skip]).to(self.device)
         seq_length = poses.shape[0]
 
         # Handle occlusion and sequence length validation
@@ -205,3 +214,23 @@ class AMASSMotionLoader:
         beta = self.beta if self.beta is not None else torch.from_numpy(clip_dict["betas"]).to(self.device)
 
         return clip_name, poses, root_pos, blendshapes, beta, gender
+
+
+BLACKLISTED_NAMES = [
+    "handrail",
+    "jump",
+    "box",
+    "hop",
+    "push",
+    "kick",
+    "dance",
+    "punch",
+    "sit",
+    "spot",
+    "crouch",
+    "crawl",
+    "JOOF",
+    "table",
+    "handstand",
+    "egyptian",
+]

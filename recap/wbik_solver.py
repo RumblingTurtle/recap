@@ -13,7 +13,7 @@ from recap.config.wbik_config import WBIKConfig
 
 import pink
 from pink import solve_ik
-from pink.limits import ConfigurationLimit
+from pink.limits import ConfigurationLimit, AccelerationLimit
 from pink.tasks import FrameTask, PostureTask, ComTask
 from pink.barriers import PositionBarrier
 
@@ -22,7 +22,7 @@ from pink.barriers import PositionBarrier
 import logging
 
 logging.disable("WARN")
-EPS = 1e-8
+EPS = 0.0
 
 
 class NoSolutionException(Exception):
@@ -82,16 +82,6 @@ class WBIKSolver:
 
         self.__setup_nik()
 
-    def adjust_tasks_relative_to_root(self):
-        """
-        Because of the COM and root velocity targets there might be a significant
-        delay between the desired position and the current one. The relative foot, elbow, knee and hand
-        positions need to be transformed to the previous solution frame
-        """
-        for name, target in self.targets.items():
-            if "root" not in name:
-                target = target * self.targets["root"].inverse() * self.tasks["root_prev"].transform_target_to_world
-
     def reset(self):
         """
         Method to reset the solution to the initial state
@@ -102,10 +92,6 @@ class WBIKSolver:
 
         self.contacts = [False, False]
         self.first_solution = True
-        # Normalize quaternion to 1
-        self.prev_solution = np.zeros(self.model.nq)
-        self.prev_solution[6] = 1
-        self.configuration = pink.Configuration(self.model, self.data, self.prev_solution)
 
     def set_target_transform(
         self,
@@ -129,9 +115,7 @@ class WBIKSolver:
             if "foot" in body_name and self.wbik_params.yaw_only_feet:
                 rotation_matrix = yaw_matrix(rotation_matrix)
 
-        T = pin.SE3(rotation_matrix, position)
-        self.targets[body_name] = T
-        self.tasks[body_name].set_target(T)
+        self.targets[body_name] = pin.SE3(rotation_matrix, position)
 
     @abstractmethod
     def set_targets(
@@ -144,14 +128,15 @@ class WBIKSolver:
         self.targets = {}
         self.prev_targets = {}
 
-        self.first_solution = True
-        self.prev_solution = np.zeros(self.model.nq)
-        self.prev_solution[6] = 1
+        q_init = np.zeros(self.model.nq)
+        q_init[6] = 1
+        self.configuration = pink.Configuration(self.model, self.data, q_init)
 
-        self.configuration = pink.Configuration(self.model, self.data, self.prev_solution)
         self.solver = qpsolvers.available_solvers[0]
         if "quadprog" in qpsolvers.available_solvers:
             self.solver = "quadprog"
+
+        self.reset()
 
         # Create a frame task for each frame in the mapping
         for body_name in self.body_to_model_map.keys():
@@ -166,13 +151,10 @@ class WBIKSolver:
                 position_cost=pos_weight,
                 orientation_cost=rot_weight,
             )
-            if subname == "root":
-                self.tasks["root_prev"] = FrameTask(
-                    self.body_to_model_map[body_name],
-                    position_cost=self.wbik_params.task_weights["root_linear_velocity"],
-                    orientation_cost=self.wbik_params.task_weights["root_angular_velocity"],
-                )
+        # Add joint velocity task
+        self.joint_pos_task = PostureTask(cost=self.wbik_params.task_weights["joint_velocity"])
 
+        # Add barriers and limits
         self.barriers = []
         ## Prevent the feet from penetrating the ground
         for side in ["left", "right"]:
@@ -194,18 +176,16 @@ class WBIKSolver:
         self.model.lowerPositionLimit += half_limit
         self.model.upperPositionLimit -= half_limit
         self.dof_limits = ConfigurationLimit(self.model, config_limit_gain=1.0)
-        # Keeps the solution close to the previous solution
-        self.tasks["joint_pos"] = PostureTask(cost=self.wbik_params.task_weights["joint_velocity"])
-        self.tasks["com_pos"] = ComTask(
-            cost=[
-                self.wbik_params.task_weights["position"]["com"],
-                self.wbik_params.task_weights["position"]["com"],
-                0,
-            ]
-        )
+        acceleration_limit = np.full(self.model.nv, 0.0)
+        acceleration_limit[:3] = self.wbik_params.task_weights["max_root_lin_acceleration"]
+        acceleration_limit[3:6] = self.wbik_params.task_weights["max_root_ang_acceleration"]
+        acceleration_limit[6:] = self.wbik_params.task_weights["max_joint_acceleration"]
+
+        self.acceleration_limit = AccelerationLimit(self.model, acceleration_limit)
 
     def solve(
         self,
+        renderer=None,
     ) -> PoseData:
         """
         Solves IK using the desired positions of the limbs
@@ -219,7 +199,22 @@ class WBIKSolver:
                 -sum of translation task errors
         """
         self.set_targets()
+
+        if self.first_solution:
+            # Init configuration at target root pos
+            q_init = np.zeros(self.model.nq)
+            q_init[:3] = self.targets["root"].translation
+            q_init[3:7] = quaternion.as_float_array(quaternion.from_rotation_matrix(self.targets["root"].rotation))[
+                [1, 2, 3, 0]
+            ]
+            self.prev_solution = q_init.copy()
+            self.configuration = pink.Configuration(self.model, self.data, q_init)
+
         self.__process_targets()
+
+        self.joint_pos_task.set_target(self.prev_solution)
+        for name in self.targets.keys():
+            self.tasks[name].set_target(self.targets[name])
 
         velocity_norm = np.inf
         iter_count = 0
@@ -231,11 +226,11 @@ class WBIKSolver:
                 if iter_count >= self.wbik_params.skip_iters:
                     raise NoSolutionException("Too many iterations")
 
-            if self.first_solution:
-                # Skip posture tasks
-                tasks = list(self.tasks.values())[:-1]
-            else:
-                tasks = list(self.tasks.values())
+            tasks = list(self.tasks.values())
+            limits = [self.dof_limits]
+            if not self.first_solution:
+                tasks += [self.joint_pos_task]
+                limits += [self.acceleration_limit]
 
             velocity = solve_ik(
                 self.configuration,
@@ -244,54 +239,21 @@ class WBIKSolver:
                 solver=self.solver,
                 barriers=self.barriers,
                 safety_break=False,
-                limits=[self.dof_limits],
+                limits=limits,
             )
             self.configuration.integrate_inplace(velocity, self.wbik_params.step_dt)
             velocity_norm = np.linalg.norm(velocity[6:])
+            if renderer is not None:
+                self.render_solution(renderer)
+                renderer.step()
+
             iter_count += 1
 
         self.prev_solution = self.configuration.q.copy()
         self.first_solution = False
         return self.build_pose_data()
 
-    def __process_targets(self):
-        """
-        Process the targets and set the desired positions and orientations
-        """
-        self.tasks["joint_pos"].set_target(self.prev_solution)
-        if self.first_solution:
-            # No need to track joint and root velocity targets on the first solution
-            self.tasks["joint_pos"].cost = EPS
-            self.tasks["root_prev"].cost[:] = EPS
-            self.prev_targets = {k: v.copy() for k, v in self.targets.items()}
-
-            self.prev_solution[:3] = self.targets["root"].translation
-            self.prev_solution[3:7] = quaternion.as_float_array(
-                quaternion.from_rotation_matrix(self.targets["root"].rotation)
-            )[[1, 2, 3, 0]]
-            self.configuration = pink.Configuration(self.model, self.data, self.prev_solution)
-            # Set root position and orientation to the desired values if it is the first solution
-        else:
-            self.tasks["root_prev"].cost[:3] = self.wbik_params.task_weights["root_linear_velocity"]
-            self.tasks["root_prev"].cost[3:] = self.wbik_params.task_weights["root_angular_velocity"]
-            self.tasks["joint_pos"].cost = self.wbik_params.task_weights["joint_velocity"]
-
-        # Compute root position projection on the support line
-        left_target = self.targets["left_foot"].translation
-        right_target = self.targets["right_foot"].translation
-        root_target = self.targets["root"].translation.copy()
-        support_vec = left_target - right_target
-        root_vec = root_target - right_target
-        max_length = np.linalg.norm(support_vec)
-        direction_vec = support_vec * (support_vec @ root_vec) / (support_vec @ support_vec)
-        direction_length = np.linalg.norm(direction_vec)
-        if direction_length > max_length:
-            length = max_length / direction_length
-        else:
-            length = 1.0
-        projected_vec = right_target + direction_vec * length
-        self.tasks["com_pos"].set_target(projected_vec)
-
+    def adjust_feet_contacts(self):
         # If the feet are in contact the target transform is fixed
         # otherwise previous solution is interpolated to the desired position
         self.contacts = [False, False]
@@ -315,23 +277,16 @@ class WBIKSolver:
                 quaternion.slerp(current_target, prev_target, 0, 1, self.wbik_params.contact_target_lerp)
             )
 
-            self.prev_targets[f"{side}_foot"] = self.targets[f"{side}_foot"].copy()
-            self.tasks[f"{side}_foot"].set_target(self.targets[f"{side}_foot"])
+    def __process_targets(self):
+        """
+        Process the targets and set the desired positions and orientations
+        """
+        if self.first_solution:
+            self.prev_targets = {k: v.copy() for k, v in self.targets.items()}
 
-        self.tasks["root_prev"].set_target(
-            pin.SE3(
-                quaternion.as_rotation_matrix(quaternion.from_float_array(self.prev_solution[[6, 3, 4, 5]])),
-                self.prev_solution[:3],
-            )
-        )
+        self.adjust_feet_contacts()
 
-        self.prev_targets = self.targets.copy()
-        self.adjust_tasks_relative_to_root()
-
-    def __iter__(
-        self,
-    ):
-        return self
+        self.prev_targets = {k: v.copy() for k, v in self.targets.items()}
 
     def body(self, body_name):
         """
@@ -380,8 +335,11 @@ class WBIKSolver:
                 )
             )
 
+        root_name = self.model.frames[list(self.model.parents).index(1)].name
         for i, frame in enumerate(self.model.frames):
-            if frame.name not in added_bodies and frame.name in self.wbik_params.extra_bodies:
+            is_root_frame = frame.name == root_name and frame.name not in added_bodies
+            is_extra_body = frame.name in self.wbik_params.extra_bodies and frame.name not in added_bodies
+            if is_root_frame or is_extra_body:
                 body_transform = self.configuration.data.oMf[i]
                 transforms.append(
                     BodyTransform(
@@ -391,11 +349,9 @@ class WBIKSolver:
                     )
                 )
 
-        root_name = self.model.frames[list(self.model.parents).index(1)].name
-
         pose_data = PoseData(
             transforms=transforms,
-            q=self.configuration.q.copy(),
+            q=self.prev_solution.copy(),
             body_aliases=self.body_to_model_map,
             model_root=root_name,
             contacts=np.array(self.contacts),
@@ -406,7 +362,7 @@ class WBIKSolver:
         return pose_data
 
     def render_solution(self, renderer: MujocoRenderer):
-        renderer.set_configuration(self.prev_solution, pin_notation=True)
+        renderer.set_configuration(self.prev_solution.copy(), pin_notation=True)
         # Render desired and target link positions and orientations
         frame_color = np.array([1, 0, 0, 1])
         for frame_name in self.body_to_pin_id.keys():

@@ -2,19 +2,35 @@ import numpy as np
 import quaternion
 from dataclasses import dataclass
 import pickle
-from recap.quat_utils import angular_velocity
+from scipy.signal import savgol_filter
+from scipy.interpolate import make_interp_spline
+from scipy.spatial.transform import Rotation, RotationSpline
 
 
 def derivative(data, sample_dt):
-    velocities = (
+    return (
         np.diff(
             data,
+            prepend=[data[0]],
             axis=0,
         )
         / sample_dt
     )
 
-    return np.concatenate([velocities, velocities[-1][None, :]])
+
+def angular_velocity(quaternions, sample_dt):
+    q_dot_savgol = savgol_filter(x=quaternions, polyorder=3, window_length=5, axis=0, deriv=1, delta=sample_dt)
+    angular_velocities = np.zeros((len(q_dot_savgol), 3))
+    for i in range(len(q_dot_savgol)):
+        q_dot_quat = quaternion.quaternion(*q_dot_savgol[i])
+        q_quat = quaternion.quaternion(*quaternions[i])
+        q_conj_quat = q_quat.conjugate()
+        result = 2 * q_dot_quat * q_conj_quat
+        # Extract vector part (x, y, z) as angular velocity
+        angular_velocities[i, 0] = result.x
+        angular_velocities[i, 1] = result.y
+        angular_velocities[i, 2] = result.z
+    return angular_velocities
 
 
 @dataclass
@@ -81,37 +97,36 @@ class BodyTimeSeries:
             self.positions = np.vstack((self.positions, position.copy()))
             self.quaternions = np.vstack((self.quaternions, np_quat.copy()))
 
-    @property
-    def linear_velocities(self):
-        if self._linear_velocities is None:
-            self._linear_velocities = derivative(self.positions, self.sample_dt)
-        return self._linear_velocities
+    def to_dict(self, scalar_first: bool = True, out_dt: float = None):
+        if out_dt is None:
+            out_dt = self.sample_dt
 
-    @property
-    def angular_velocities(self):
-        if self._angular_velocities is None:
-            ang_vel = angular_velocity(self.quaternions[:-1], self.quaternions[1:], self.sample_dt)
-            ang_vel = np.concatenate([ang_vel, ang_vel[-1][None, :]])
-            self._angular_velocities = ang_vel
+        quaternions = quaternion.as_float_array(quaternion.unflip_rotors(quaternion.from_float_array(self.quaternions)))
 
-        return self._angular_velocities
+        old_t = np.arange(self.positions.shape[0]) * self.sample_dt
+        new_t = np.arange(old_t[0], old_t[-1], out_dt)
 
-    def to_dict(self, scalar_first: bool = True):
+        positions_spline = make_interp_spline(old_t, self.positions, k=1, bc_type="not-a-knot", axis=0)
+        sci_quats = Rotation.from_quat(quaternions)
+        quat_spline = RotationSpline(old_t, sci_quats)
+
+        positions = positions_spline(new_t)
+        quaternions = quat_spline(new_t).as_quat()
         return {
-            "position": self.positions,
-            "quaternion": (self.quaternions if scalar_first else self.quaternions[:, [1, 2, 3, 0]]),
-            "linear_velocity": self.linear_velocities,
-            "angular_velocity": self.angular_velocities,
+            "position": positions,
+            "quaternion": (quaternions if scalar_first else quaternions[:, [1, 2, 3, 0]]),
+            "linear_velocity": derivative(positions, out_dt),
+            "angular_velocity": angular_velocity(quaternions, out_dt),
         }
 
 
 class Trajectory:
-    def __init__(self, dt: float = 0.001):
+    def __init__(self, sample_dt: float = 0.001):
         self.contacts = None
-        self.bodies = {}
+        self.bodies: dict[str, BodyTimeSeries] = {}
         self.qs = None
         self._joint_velocities = None
-        self.dt = dt
+        self.sample_dt = sample_dt
 
     def add_sample(
         self,
@@ -136,36 +151,36 @@ class Trajectory:
             self.qs = np.vstack([self.qs, pose_data.q])
 
         for transform in pose_data.transforms:
-            if "world" in transform.name:
+            if transform.name in ["world", "universe"]:
                 continue
             if transform.name not in self.bodies.keys():
-                self.bodies[transform.name] = BodyTimeSeries(transform.name, self.dt)
+                self.bodies[transform.name] = BodyTimeSeries(transform.name, self.sample_dt)
             self.bodies[transform.name].add_sample(transform.position, transform.quaternion)
 
-    @property
-    def joint_positions(self):
-        return self.qs[:, 7:]
+    def to_dict(self, out_dt: float = None):
+        if out_dt is None:
+            out_dt = self.sample_dt
 
-    @property
-    def joint_velocities(self):
-        if self._joint_velocities is None:
-            self._joint_velocities = derivative(self.joint_positions, self.dt)
-        return self._joint_velocities
+        old_t = np.arange(self.qs.shape[0]) * self.sample_dt
+        new_t = np.arange(old_t[0], old_t[-1], out_dt)
 
-    def to_dict(self):
+        joint_position_spline = make_interp_spline(old_t, self.qs[:, 7:], k=1, bc_type="not-a-knot", axis=0)
+        joint_positions = joint_position_spline(new_t)
+        joint_velocities = joint_position_spline(new_t, 1)
+
         out_dict = {
-            "q": self.qs.copy(),
-            "dt": self.dt,
-            "joint_positions": self.joint_positions,
-            "joint_velocities": self.joint_velocities,
+            "dt": out_dt,
+            "joint_positions": joint_positions,
+            "joint_velocities": joint_velocities,
             "joint_order": self.joint_order,
             "body_aliases": self.body_aliases,
             "model_root": self.model_root,
-            "contacts": self.contacts,
+            "contacts": self.contacts[np.abs(old_t - new_t[:, None]).argmin(1)],
             "transforms": {},
         }
+
         for name, body in self.bodies.items():
-            body_dict = body.to_dict()
+            body_dict = body.to_dict(out_dt=out_dt)
 
             out_dict["transforms"][name] = {}
             for k, v in body_dict.items():
@@ -180,10 +195,10 @@ class Trajectory:
                 data_dict[k] = self.convert_ndarrays(v)
         return data_dict
 
-    def save(self, path):
+    def save(self, path, out_dt: float = 0.02):
         # Have to remove numpy arrays entirely
         # to preserve compatibility between versions
-        trajectory_dict = self.convert_ndarrays(self.to_dict())
+        trajectory_dict = self.convert_ndarrays(self.to_dict(out_dt=out_dt))
         with open(path + ".pkl", "wb") as f:
             pickle.dump(trajectory_dict, f)
 
