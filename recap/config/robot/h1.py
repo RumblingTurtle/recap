@@ -1,6 +1,8 @@
 from recap.config.amass_retarget_config import AMASSRetargetConfig
 from recap.config.cmu_retarget_config import CMURetargetConfig
 from recap.config.lafan_retarget_config import LAFANRetargetConfig
+from recap.config.optitrack_retarget_config import OptitrackRetargetConfig
+
 import numpy as np
 from robot_descriptions.h1_mj_description import MJCF_PATH
 from recap.mujoco.model_editor import MJCFModelEditor
@@ -9,6 +11,7 @@ import os
 # Add a new body to the torso link to serve as the center of the torso
 editor = MJCFModelEditor.from_path(MJCF_PATH)
 editor.add_body("torso_center", "torso_link", np.array([0.0, 0, 0.4]), np.array([1, 0, 0, 0]))
+editor.add_body("torso_middle", "torso_link", np.array([0.0, 0, 0.2]), np.array([1, 0, 0, 0]))
 editor.add_body("spine", "torso_link", np.array([0.0, 0, 0.17]), np.array([1, 0, 0, 0]))
 # Moving the elbow slightly backward to avoid singular configurations
 editor.add_body(
@@ -172,3 +175,24 @@ class H1_LAFAN_CONFIG(LAFANRetargetConfig):
         "right_shoulder": "right_shoulder_roll_link",
     }
     extra_bodies = ["imu"]
+
+
+class H1_OPTITRACK_CONFIG(OptitrackRetargetConfig):
+    mjcf_path = MODEL_PATH
+    joint_limit_scale = 0.9
+    contact_velocity = -1
+    body_to_model_map = {
+        "root": "torso_middle",
+        "left_hip": "left_hip_pitch_link",
+        "right_hip": "right_hip_pitch_link",
+        "left_knee": "left_knee_link",
+        "right_knee": "right_knee_link",
+        "left_foot": "left_ankle_link",
+        "right_foot": "right_ankle_link",
+        "left_hand": "left_hand",
+        "right_hand": "right_hand",
+        "left_elbow": "left_elbow_center",
+        "right_elbow": "right_elbow_center",
+        "left_shoulder": "left_shoulder_roll_link",
+        "right_shoulder": "right_shoulder_roll_link",
+    }
